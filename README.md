@@ -41,7 +41,6 @@ dotnet run
 
 # Swagger UI: http://localhost:5234/swagger
 
-Вот техническое описание ролей и прав доступа сплошным текстом:
 
 ---
 
