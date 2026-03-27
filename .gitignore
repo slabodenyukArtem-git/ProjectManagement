@@ -1,0 +1,24 @@
+﻿# Build output
+**/bin/
+**/obj/
+**/out/
+**/publish/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Database files
+*.db
+*.sqlite
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# OS generated
+.DS_Store
+Thumbs.db

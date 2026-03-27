@@ -1,0 +1,168 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление проектами | Sibers</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="app" class="container">
+        <div class="wizard-card">
+            <!-- Шаги -->
+            <div class="steps">
+                <div v-for="(step, index) in steps" :key="index" 
+                     class="step" 
+                     :class="{ active: currentStep === index, completed: step.completed }"
+                     @click="goToStep(index)">
+                    <div class="step-number">
+                        <span v-if="step.completed">✓</span>
+                        <span v-else>{{ index + 1 }}</span>
+                    </div>
+                    <div class="step-title">{{ step.title }}</div>
+                </div>
+            </div>
+            
+            <!-- Контент -->
+            <div class="content">
+                <!-- Шаг 1 -->
+                <div class="page" :class="{ active: currentStep === 0 }">
+                    <h3>📋 Основная информация</h3>
+                    <div class="form-group">
+                        <label>Название проекта <span class="required">*</span></label>
+                        <input type="text" v-model="project.name" placeholder="Введите название проекта">
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <label>Дата начала <span class="required">*</span></label>
+                            <input type="date" v-model="project.startDate">
+                        </div>
+                        <div class="col">
+                            <label>Дата окончания <span class="required">*</span></label>
+                            <input type="date" v-model="project.endDate">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Приоритет (1 - низкий, 10 - высокий)</label>
+                        <input type="range" v-model.number="project.priority" min="1" max="10" step="1">
+                        <div class="text-center" style="margin-top: 12px;">
+                            <span class="priority-badge" :class="priorityClass">Приоритет: {{ project.priority }} / 10</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Шаг 2 -->
+                <div class="page" :class="{ active: currentStep === 1 }">
+                    <h3>🏢 Компании</h3>
+                    <div class="form-group">
+                        <label>Компания-заказчик <span class="required">*</span></label>
+                        <input type="text" v-model="project.customerCompany" placeholder="Например: ООО Ромашка">
+                    </div>
+                    <div class="form-group">
+                        <label>Компания-исполнитель <span class="required">*</span></label>
+                        <input type="text" v-model="project.executorCompany" placeholder="Например: ООО Сибирские технологии">
+                    </div>
+                </div>
+                
+                <!-- Шаг 3 -->
+                <div class="page" :class="{ active: currentStep === 2 }">
+                    <h3>👨‍💼 Руководитель проекта</h3>
+                    <div class="typeahead">
+                        <label>Выберите руководителя <span class="required">*</span></label>
+                        <input type="text" 
+                               class="typeahead-input"
+                               v-model="managerSearch" 
+                               @focus="openManagerDropdown"
+                               @input="searchManagers"
+                               placeholder="Введите имя, фамилию или email..."
+                               autocomplete="off">
+                        <div class="dropdown-list" v-if="showManagerDropdown && managerResults.length">
+                            <div v-for="emp in managerResults" :key="emp.id" class="dropdown-item" @click="selectManager(emp)">
+                                <strong>{{ emp.fullName }}</strong>
+                                <small>{{ emp.email }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-if="selectedManager" class="alert alert-success">
+                        ✓ Выбран руководитель: <strong>{{ selectedManager.fullName }}</strong>
+                    </div>
+                </div>
+                
+                <!-- Шаг 4 -->
+                <div class="page" :class="{ active: currentStep === 3 }">
+                    <h3>👥 Исполнители проекта</h3>
+                    <div class="typeahead">
+                        <label>Добавить исполнителя</label>
+                        <input type="text" 
+                               class="typeahead-input"
+                               v-model="executorSearch" 
+                               @focus="openExecutorDropdown"
+                               @input="searchExecutors"
+                               placeholder="Введите имя, фамилию или email..."
+                               autocomplete="off">
+                        <div class="dropdown-list" v-if="showExecutorDropdown && executorResults.length">
+                            <div v-for="emp in executorResults" :key="emp.id" class="dropdown-item" @click="addExecutor(emp)">
+                                <strong>{{ emp.fullName }}</strong>
+                                <small>{{ emp.email }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div v-if="project.executors.length === 0" class="alert alert-info" style="margin-top: 16px;">
+                        💡 Исполнители не добавлены
+                    </div>
+                    <div v-else class="executors-list">
+                        <div v-for="exec in project.executors" :key="exec.id" class="executor-item">
+                            <div class="executor-info">
+                                <strong>{{ exec.fullName }}</strong>
+                                <small>{{ exec.email }}</small>
+                            </div>
+                            <button class="btn btn-danger btn-sm" @click="removeExecutor(exec.id)">Удалить</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Шаг 5 -->
+                <div class="page" :class="{ active: currentStep === 4 }">
+                    <h3>📎 Загрузка документов</h3>
+                    <div class="dropzone" 
+                         @dragover.prevent="onDragOver"
+                         @dragleave="onDragLeave"
+                         @drop.prevent="onDrop"
+                         @click="triggerFileInput">
+                        <div class="dropzone-icon">📁</div>
+                        <p><strong>Перетащите файлы сюда</strong> или нажмите для выбора</p>
+                        <small>Поддерживаются любые форматы (PDF, DOC, XLS, изображения и др.)</small>
+                        <input type="file" ref="fileInput" multiple style="display: none" @change="onFileSelect">
+                    </div>
+                    
+                    <div v-if="uploadedFiles.length" class="file-list">
+                        <h4 style="margin-bottom: 12px;">Загруженные файлы ({{ uploadedFiles.length }})</h4>
+                        <div v-for="(file, idx) in uploadedFiles" :key="idx" class="file-item">
+                            <span>📄 {{ file.name }} ({{ formatFileSize(file.size) }})</span>
+                            <button class="btn btn-danger btn-sm" @click="uploadedFiles.splice(idx, 1)">Удалить</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Навигация -->
+                <div class="navigation">
+                    <button class="btn btn-secondary" @click="prevStep" :disabled="currentStep === 0">
+                        ← Назад
+                    </button>
+                    <button class="btn btn-primary" @click="nextStep" v-if="currentStep < 4" :disabled="isLoading">
+                        Далее →
+                    </button>
+                    <button class="btn btn-success" @click="submitProject" v-if="currentStep === 4" :disabled="isLoading">
+                        {{ isLoading ? 'Сохранение...' : 'Сохранить проект' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
